@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Personal OS</title>
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{
+    --black:#000000;--surface:#0a0a0a;--surface2:#111111;--surface3:#1a1a1a;
+    --border:#222222;--border2:#2a2a2a;
+    --text:#F5F5F7;--text2:#a1a1a6;--text3:#6e6e73;
+    --accent:#ffffff;--accent2:#f0f0f0;
+    --blue:#3b82f6;--green:#22c55e;--amber:#f59e0b;--red:#ef4444;
+  }
+  html,body,#root{width:100%;height:100%;overflow:hidden;background:#000}
+  body{font-family:'Inter',system-ui,sans-serif;color:var(--text);-webkit-font-smoothing:antialiased}
+  ::-webkit-scrollbar{width:3px;height:3px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+  input,textarea{background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:inherit;outline:none;border-radius:6px;padding:6px 10px;font-size:13px;transition:border .2s}
+  input:focus,textarea:focus{border-color:var(--border2)}
+  button{cursor:pointer;font-family:inherit;transition:all .2s ease}
+  .no-select{user-select:none}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+// ─── INITIAL STATE ──────────────────────────────────────────────────────────
+const INIT_STATS = {
+  physical:[
+    {id:1,label:'Height',value:'180cm'},
+    {id:2,label:'Weight',value:'75kg'},
+    {id:3,label:'Hair Color',value:'Black'},
+    {id:4,label:'Eye Color',value:'Hazel'},
+  ],
+  technical:[
+    {id:5,label:'Dexterity',value:'Right-handed'},
+    {id:6,label:'Programming',value:'Beginner'},
+  ],
+  creative:[
+    {id:7,label:'Filmmaking',value:'Advanced'},
+    {id:8,label:'3D Design',value:'Intermediate'},
+  ]
+};
+
+const INIT_PROJECTS = [
+  {id:1,title:'Void Sequence',type:'Film',year:'2024',desc:'A short film exploring temporal dissonance.',color:'#1a1a2e'},
+  {id:2,title:'Neural Grid',type:'Code',year:'2024',desc:'ML-powered visualization engine.',color:'#0d1117'},
+  {id:3,title:'Parallax World',type:'Film',year:'2023',desc:'Documentary about perspective and reality.',color:'#1c1c1c'},
+  {id:4,title:'Orbit OS',type:'Code',year:'2023',desc:'Minimal desktop environment concept.',color:'#0f0f23'},
+  {id:5,title:'Fracture',type:'Film',year:'2023',desc:'Experimental visual essay on entropy.',color:'#1a0a0a'},
+  {id:6,title:'Cascade',type:'Code',year:'2024',desc:'Real-time fluid simulation renderer.',color:'#0a1a0a'},
+];
+
+const INIT_SIDEBAR_ITEMS = [
+  {id:1,label:'Calendar',icon:'📅'},
+  {id:2,label:'My Stuff',icon:'🗂'},
+  {id:3,label:'Goals',icon:'🎯'},
+  {id:4,label:'Training',icon:'💪'},
+];
+
+const SUBJECTS = {
+  'Year 1':{
+    'Semester 1':['Engineering Mathematics I','Physics I','Programming Fundamentals','Engineering Drawing','Communication Skills'],
+    'Semester 2':['Engineering Mathematics II','Physics II','Data Structures','Chemistry','Professional Ethics'],
+  },
+  'Year 2':{
+    'Semester 1':['Discrete Mathematics','Object-Oriented Programming','Digital Electronics','Statistics','Database Systems'],
+    'Semester 2':['Design & Analysis of Algorithms','Computer Organization','Operating Systems','Probability Theory','Economics'],
+  },
+  'Year 3':{
+    'Semester 1':['Computer Networks','Software Engineering','Theory of Computation','Machine Learning','Elective I'],
+    'Semester 2':['Compiler Design','Distributed Systems','Information Security','Deep Learning','Elective II'],
+  },
+  'Year 4':{
+    'Semester 1':['Cloud Computing','Big Data Analytics','Blockchain','Research Methodology','Project I'],
+    'Semester 2':['Capstone Project','Advanced AI','Entrepreneurship','Seminar','Internship'],
+  },
+};
+
+const MOCK_CHAT_RESPONSES = {
+  default: [
+    "Based on your course materials, here are the key concepts to focus on: **Core Algorithms** — time complexity analysis, dynamic programming, greedy methods. **Data Structures** — graphs, trees, heaps with their operations. **Applications** — real-world problem mapping.",
+    "For this subject, I recommend a spaced repetition approach. Review fundamentals daily, tackle practice problems every other day, and do mock exams weekly before assessments.",
+    "Key exam tips: derive formulas from first principles, show all steps, use diagrams where applicable. Common mistakes include skipping edge cases and not validating assumptions.",
+  ]
+};
+
+// ─── TOAST ──────────────────────────────────────────────────────────────────
+function Toast({toasts}) {
+  return (
+    <div style={{position:'fixed',bottom:24,right:24,zIndex:9999,display:'flex',flexDirection:'column',gap:8}}>
+      {toasts.map(t=>(
+        <div key={t.id} style={{
+          background:'var(--surface2)',border:'1px solid var(--border2)',
+          borderRadius:8,padding:'10px 16px',fontSize:12,color:'var(--text2)',
+          animation:'slideIn .3s ease',display:'flex',alignItems:'center',gap:8
+        }}>
+          <span style={{color:'var(--green)',fontSize:10}}>●</span>{t.msg}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── PROFILE DRAWER ──────────────────────────────────────────────────────────
+function ProfileDrawer({open, onClose, stats, setStats, addToast}) {
+  const [editing, setEditing] = useState({});
+  const [editVals, setEditVals] = useState({});
+
+  const startEdit = (id, val) => {
+    setEditing(p=>({...p,[id]:true}));
+    setEditVals(p=>({...p,[id]:val}));
+  };
+  const saveEdit = (section, id) => {
+    setStats(prev=>({...prev,[section]:prev[section].map(s=>s.id===id?{...s,value:editVals[id]}:s)}));
+    setEditing(p=>({...p,[id]:false}));
+    addToast('Stat Synced');
+  };
+  const addRow = (section) => {
+    const newId = Date.now();
+    setStats(prev=>({...prev,[section]:[...prev[section],{id:newId,label:'New Attribute',value:'—'}]}));
+  };
+  const deleteRow = (section, id) => {
+    setStats(prev=>({...prev,[section]:prev[section].filter(s=>s.id!==id)}));
+  };
+
+  const sections = [
+    {key:'physical',label:'Physical'},
+    {key:'technical',label:'Technical'},
+    {key:'creative',label:'Creative'},
+  ];
+
+  return (
+    <>
+      {open && <div onClick={onClose} style={{position:'fixed',inset:0,zIndex:199,background:'rgba(0,0,0,0.5)'}}/>}
+      <div style={{
+        position:'fixed',top:0,right:0,bottom:0,width:320,
+        background:'var(--surface)',borderLeft:'1px solid var(--border)',
+        zIndex:200,transform:open?'translateX(0)':'translateX(100%)',
+        transition:'transform .35s cubic-bezier(.4,0,.2,1)',
+        display:'flex',flexDirection:'column',overflow:'hidden'
+      }}>
+        <div style={{padding:'20px 20px 16px',borderBottom:'1px solid var(--border)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <div>
+            <p style={{fontSize:11,color:'var(--text3)',letterSpacing:2,textTransform:'uppercase'}}>Character Sheet</p>
+            <p style={{fontSize:16,fontWeight:600,marginTop:2}}>Stat Panel</p>
+          </div>
+          <button onClick={onClose} style={{background:'none',border:'none',color:'var(--text3)',fontSize:20,lineHeight:1}}>×</button>
+        </div>
+        <div style={{flex:1,overflowY:'auto',padding:20}}>
+          {sections.map(({key,label})=>(
+            <div key={key} style={{marginBottom:28}}>
+              <p style={{fontSize:10,letterSpacing:3,textTransform:'uppercase',color:'var(--text3)',marginBottom:12}}>{label} Stats</p>
+              {stats[key].map(stat=>(
+                <div key={stat.id} style={{display:'flex',alignItems:'center',gap:8,marginBottom:8,padding:'8px 10px',background:'var(--surface2)',borderRadius:8,border:'1px solid var(--border)',group:'true'}}>
+                  <span style={{flex:1,fontSize:12,color:'var(--text2)'}}>{stat.label}</span>
+                  {editing[stat.id]
+                    ? <input
+                        autoFocus value={editVals[stat.id]}
+                        onChange={e=>setEditVals(p=>({...p,[stat.id]:e.target.value}))}
+                        onBlur={()=>saveEdit(key,stat.id)}
+                        onKeyDown={e=>e.key==='Enter'&&saveEdit(key,stat.id)}
+                        style={{width:90,padding:'3px 6px',fontSize:12}}
+                      />
+                    : <span
+                        onClick={()=>startEdit(stat.id,stat.value)}
+                        style={{fontSize:12,color:'var(--text)',cursor:'pointer',padding:'3px 6px',borderRadius:4,border:'1px solid transparent',':hover':{borderColor:'var(--border2)'}}}
+                      >{stat.value}</span>
+                  }
+                  <button onClick={()=>deleteRow(key,stat.id)} style={{background:'none',border:'none',color:'var(--text3)',fontSize:14,padding:'0 2px',opacity:.6}}>×</button>
+                </div>
+              ))}
+              <button onClick={()=>addRow(key)} style={{
+                width:'100%',padding:'7px',background:'none',border:'1px dashed var(--border2)',
+                borderRadius:8,color:'var(--text3)',fontSize:12,marginTop:4
+              }}>+ Add Attribute Row</button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ─── SIDEBAR OVERLAY ─────────────────────────────────────────────────────────
+function SidebarOverlay({item, onClose}) {
+  const [visible, setVisible] = useState(false);
+  useEffect(()=>{setTimeout(()=>setVisible(true),10)},[]);
+
+  const handleClose = () => {
+    setVisible(false);
+    setTimeout(onClose, 350);
+  };
+
+  const content = {
+    'Calendar': <CalendarView/>,
+    'My Stuff': <MyStuffView/>,
+    'Goals': <GoalsView/>,
+    'Training': <TrainingView/>,
+  };
+
+  return (
+    <div style={{
+      position:'fixed',inset:0,zIndex:300,
+      background:visible?'rgba(0,0,0,0.95)':'rgba(0,0,0,0)',
+      backdropFilter:'blur(20px)',
+      transform:visible?'scale(1)':'scale(0.9)',
+      transition:'all .35s cubic-bezier(.4,0,.2,1)',
+      display:'flex',flexDirection:'column'
+    }}>
+      <div style={{display:'flex',justifyContent:'flex-end',padding:'20px 24px'}}>
+        <button onClick={handleClose} style={{
+          background:'var(--surface2)',border:'1px solid var(--border)',
+          color:'var(--text)',borderRadius:'50%',width:40,height:40,fontSize:18
+        }}>×</button>
+      </div>
+      <div style={{flex:1,overflow:'auto',padding:'0 40px 40px'}}>
+        <h2 style={{fontSize:28,fontWeight:300,marginBottom:24,color:'var(--text2)'}}>{item.icon} {item.label}</h2>
+        {content[item.label] || <p style={{color:'var(--text3)'}}>No content yet.</p>}
+      </div>
+    </div>
+  );
+}
+
+function CalendarView() {
+  const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const today = new Date();
+  const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  const daysInMonth = new Date(today.getFullYear(), today.getMonth()+1, 0).getDate();
+  const startDay = (startOfMonth.getDay()+6)%7;
+  const cells = Array.from({length: startDay + daysInMonth}, (_, i) => i < startDay ? null : i - startDay + 1);
+
+  return (
+    <div style={{maxWidth:500}}>
+      <p style={{fontSize:13,color:'var(--text3)',marginBottom:16}}>{today.toLocaleString('default',{month:'long',year:'numeric'})}</p>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:4}}>
+        {days.map(d=><div key={d} style={{textAlign:'center',fontSize:11,color:'var(--text3)',padding:'6px 0'}}>{d}</div>)}
+        {cells.map((d,i)=>(
+          <div key={i} style={{
+            textAlign:'center',padding:'10px 0',fontSize:13,borderRadius:6,
+            background:d===today.getDate()?'var(--surface3)':'none',
+            color:d?d===today.getDate()?'var(--text)':'var(--text2)':'transparent',
+            border:d===today.getDate()?'1px solid var(--border2)':'1px solid transparent'
+          }}>{d||''}</div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MyStuffView() {
+  const items = ['Design Assets','Project Files','References','Personal Notes','Archive'];
+  return (
+    <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12,maxWidth:600}}>
+      {items.map(item=>(
+        <div key={item} style={{padding:'20px 16px',background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:10,cursor:'pointer'}}>
+          <div style={{fontSize:24,marginBottom:8}}>📁</div>
+          <p style={{fontSize:13,color:'var(--text2)'}}>{item}</p>
+          <p style={{fontSize:11,color:'var(--text3)',marginTop:4}}>0 items</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function GoalsView() {
+  const goals = [{label:'Ship portfolio site',done:true},{label:'Complete Year 1',done:false},{label:'Build 3D animation',done:false},{label:'Learn Python basics',done:true}];
+  return (
+    <div style={{maxWidth:400}}>
+      {goals.map((g,i)=>(
+        <div key={i} style={{display:'flex',alignItems:'center',gap:12,padding:'12px 16px',background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:8,marginBottom:8}}>
+          <div style={{width:18,height:18,borderRadius:4,border:`1px solid ${g.done?'var(--green)':'var(--border2)'}`,background:g.done?'var(--green)':'none',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10}}>
+            {g.done?'✓':''}
+          </div>
+          <span style={{fontSize:13,color:g.done?'var(--text3)':'var(--text)',textDecoration:g.done?'line-through':'none'}}>{g.label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TrainingView() {
+  const logs = [{day:'Mon',workout:'Upper Body',duration:'45 min'},{day:'Wed',workout:'Cardio Run',duration:'30 min'},{day:'Fri',workout:'Lower Body',duration:'50 min'}];
+  return (
+    <div style={{maxWidth:500}}>
+      {logs.map((l,i)=>(
+        <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'14px 18px',background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:8,marginBottom:8}}>
+          <span style={{fontSize:12,color:'var(--text3)',width:40}}>{l.day}</span>
+          <span style={{fontSize:13,flex:1,paddingLeft:16}}>{l.workout}</span>
+          <span style={{fontSize:12,color:'var(--text3)'}}>{l.duration}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── PERSONAL VIEW ───────────────────────────────────────────────────────────
+function PersonalView({projects}) {
+  const [viewMode, setViewMode] = useState('grid');
+  const [spiralRot, setSpiralRot] = useState(0);
+  const philosophyRef = useRef(null);
+  const [philosophyOpacity, setPhilosophyOpacity] = useState(0.1);
+
+  useEffect(()=>{
+    const el = philosophyRef.current;
+    if(!el) return;
+    const obs = new IntersectionObserver(([e])=>setPhilosophyOpacity(e.intersectionRatio),(window.IntersectionObserver?{threshold:Array.from({length:20},(_,i)=>i/20)}:{}));
+    obs.observe(el);
+    return ()=>obs.disconnect();
+  },[]);
+
+  const spiralCards = useMemo(()=>projects.map((p,i)=>{
+    const angle = (i/projects.length)*Math.PI*2 + spiralRot;
+    const r = 180 + i*18;
+    const x = Math.cos(angle)*r;
+    const z = Math.sin(angle)*r;
+    const scale = (z+350)/500;
+    return {...p, x, z, scale, zIndex:Math.round(scale*100)};
+  }),[projects, spiralRot]);
+
+  return (
+    <div style={{overflowY:'auto',height:'100%'}}>
+      {/* Hero */}
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:0,minHeight:'90vh',padding:'0 0 0 60px'}}>
+        {/* Left */}
+        <div style={{display:'flex',flexDirection:'column',justifyContent:'center',padding:'60px 60px 60px 0'}}>
+          <p style={{fontSize:11,letterSpacing:3,textTransform:'uppercase',color:'var(--text3)',marginBottom:20}}>Personal OS — v1.0</p>
+          <h1 style={{fontSize:52,fontWeight:700,lineHeight:1.1,letterSpacing:'-2px',marginBottom:32}}>
+            Build<br/>without<br/>limits.
+          </h1>
+          <div
+            ref={philosophyRef}
+            style={{opacity:philosophyOpacity,transition:'opacity .1s',borderLeft:'2px solid var(--border2)',paddingLeft:20,marginTop:24}}
+          >
+            <p style={{fontSize:36,fontWeight:200,color:'var(--text)',letterSpacing:'-1px',lineHeight:1.2}}>
+              "Everything<br/>will end."
+            </p>
+            <p style={{fontSize:13,color:'var(--text3)',marginTop:12}}>— the only motivation that matters</p>
+          </div>
+        </div>
+        {/* Right - 3D frame */}
+        <div style={{position:'relative',overflow:'visible',zIndex:50}}>
+          <div style={{
+            position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',
+            background:'linear-gradient(135deg,#0d0d0d,#1a1a1a)',
+            borderLeft:'1px solid var(--border)',overflow:'visible'
+          }}>
+            <div style={{
+              width:280,height:280,borderRadius:20,
+              background:'radial-gradient(circle at 50% 40%,#1c1c3a,#050508)',
+              border:'1px solid #222244',display:'flex',alignItems:'center',justifyContent:'center',
+              boxShadow:'0 0 80px rgba(60,60,140,.3)',
+              transform:'translateY(-30px)'
+            }}>
+              <div style={{textAlign:'center'}}>
+                <div style={{fontSize:64,marginBottom:8,animation:'float 3s ease-in-out infinite'}}>🤖</div>
+                <p style={{fontSize:11,color:'#555566',letterSpacing:2}}>ROBOT.EXE</p>
+                <p style={{fontSize:10,color:'#333344',marginTop:4}}>Spline canvas placeholder</p>
+              </div>
+            </div>
+            <div style={{
+              position:'absolute',top:'55%',left:'20%',right:'20%',height:1,
+              background:'linear-gradient(90deg,transparent,var(--border2),transparent)'
+            }}/>
+          </div>
+        </div>
+      </div>
+
+      {/* Project Gallery */}
+      <div style={{padding:'60px 60px 80px'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:40}}>
+          <h2 style={{fontSize:24,fontWeight:500,letterSpacing:'-0.5px'}}>Projects</h2>
+          <div style={{display:'flex',gap:4,background:'var(--surface2)',padding:3,borderRadius:8,border:'1px solid var(--border)'}}>
+            {['Grid','Spiral'].map(m=>(
+              <button key={m} onClick={()=>setViewMode(m.toLowerCase())} style={{
+                padding:'6px 16px',borderRadius:6,border:'none',fontSize:12,fontWeight:500,
+                background:viewMode===m.toLowerCase()?'var(--surface3)':'none',
+                color:viewMode===m.toLowerCase()?'var(--text)':'var(--text3)'
+              }}>{m}</button>
+            ))}
+          </div>
+        </div>
+
+        {viewMode==='grid' ? (
+          <div style={{
+            display:'grid',gridTemplateColumns:'1fr 1.2fr 0.8fr',gap:16,
+            transform:'perspective(1200px) rotateX(12deg) rotateY(-5deg)',
+            transformOrigin:'center top'
+          }}>
+            {projects.map((p,i)=>(
+              <div key={p.id} style={{
+                padding:'24px',borderRadius:12,border:'1px solid var(--border)',
+                background:p.color,cursor:'pointer',
+                gridColumn: i===1?'span 1':'span 1',
+                minHeight: i===0||i===4?200:140,
+                transition:'transform .3s,border-color .3s',
+                display:'flex',flexDirection:'column',justifyContent:'space-between'
+              }}>
+                <div>
+                  <span style={{fontSize:10,letterSpacing:2,textTransform:'uppercase',color:'var(--text3)',display:'block',marginBottom:8}}>{p.type} · {p.year}</span>
+                  <h3 style={{fontSize:18,fontWeight:600,marginBottom:8}}>{p.title}</h3>
+                  <p style={{fontSize:12,color:'var(--text2)',lineHeight:1.5}}>{p.desc}</p>
+                </div>
+                <span style={{fontSize:11,color:'var(--text3)',marginTop:16}}>View →</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{position:'relative',height:500,overflow:'hidden'}}>
+            <div style={{position:'absolute',top:0,left:0,right:0,bottom:0,display:'flex',alignItems:'center',justifyContent:'center'}}
+              onWheel={e=>setSpiralRot(r=>r+e.deltaY*0.003)}>
+              <p style={{position:'absolute',bottom:16,color:'var(--text3)',fontSize:11,letterSpacing:1}}>SCROLL TO ROTATE</p>
+              {spiralCards.sort((a,b)=>a.scale-b.scale).map(p=>(
+                <div key={p.id} style={{
+                  position:'absolute',
+                  transform:`translateX(${p.x}px) scale(${Math.max(0.4,Math.min(1,p.scale))})`,
+                  opacity:Math.max(0.2,p.scale),
+                  zIndex:p.zIndex,
+                  padding:'16px 20px',borderRadius:10,border:'1px solid var(--border)',
+                  background:p.color,minWidth:160,cursor:'pointer',
+                  transition:'transform .1s linear'
+                }}>
+                  <span style={{fontSize:9,color:'var(--text3)',letterSpacing:2,textTransform:'uppercase'}}>{p.type}</span>
+                  <p style={{fontSize:14,fontWeight:600,marginTop:4}}>{p.title}</p>
+                  <p style={{fontSize:11,color:'var(--text2)',marginTop:4,lineHeight:1.4}}>{p.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+      <style>{`@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}`}</style>
+    </div>
+  );
+}
+
+// ─── ACADEMIC VIEW ────────────────────────────────────────────────────────────
+function AcademicView({addToast}) {
+  const years = Object.keys(SUBJECTS);
+  const [activeYear, setActiveYear] = useState(years[0]);
+  const [activeSem, setActiveSem] = useState('Semester 1');
+  const [expandedSubject, setExpandedSubject] = useState(null);
+  const [subjectTitles, setSubjectTitles] = useState({});
+  const [editingTitle, setEditingTitle] = useState(null);
+  const [drawerState, setDrawerState] = useState({});
+
+  const sems = Object.keys(SUBJECTS[activeYear]);
+
+  const getTitle = (orig) => subjectTitles[orig] || orig;
+
+  const initDrawer = (subj) => {
+    if(!drawerState[subj]) {
+      setDrawerState(p=>({...p,[subj]:{files:[],summary:null,summLoading:false,topics:null,topicsLoading:false,chat:[{role:'assistant',msg:'Hello! I can help you study. Ask me anything about ' + subj + '.'}],chatInput:'',attachment:null}}));
+    }
+  };
+
+  const updateDrawer = (subj, patch) => setDrawerState(p=>({...p,[subj]:{...p[subj],...patch}}));
+
+  const handleFiles = (subj, files) => {
+    const names = Array.from(files).map(f=>f.name);
+    updateDrawer(subj,{files:[...(drawerState[subj]?.files||[]),...names]});
+  };
+
+  const summarize = async (subj) => {
+    updateDrawer(subj,{summLoading:true,summary:null});
+    await new Promise(r=>setTimeout(r,1400));
+    updateDrawer(subj,{summLoading:false,summary:[
+      '**Core Concepts**: Fundamental theories and definitions covered in lectures',
+      '**Key Formulas**: Derivations and application contexts for exam questions',
+      '**Practice Problems**: Sample questions with step-by-step solutions',
+      '**Important Dates**: Assignment deadlines and examination schedule',
+      '**Supplementary Reading**: Recommended textbook chapters and references',
+    ]});
+  };
+
+  const analyzeTopics = async (subj) => {
+    updateDrawer(subj,{topicsLoading:true,topics:null});
+    await new Promise(r=>setTimeout(r,1800));
+    const topics = [
+      {label:'Mathematical Derivations',prob:92},
+      {label:'Problem Sets',prob:87},
+      {label:'Conceptual Questions',prob:79},
+      {label:'Case Studies',prob:65},
+      {label:'Definitions & Theory',prob:58},
+    ];
+    updateDrawer(subj,{topicsLoading:false,topics});
+  };
+
+  const sendChat = async (subj) => {
+    const d = drawerState[subj];
+    if(!d?.chatInput?.trim()) return;
+    const msg = d.chatInput;
+    updateDrawer(subj,{chat:[...d.chat,{role:'user',msg}],chatInput:''});
+    await new Promise(r=>setTimeout(r,800));
+    const replies = MOCK_CHAT_RESPONSES.default;
+    const reply = replies[Math.floor(Math.random()*replies.length)];
+    setDrawerState(p=>({...p,[subj]:{...p[subj],chat:[...p[subj].chat,{role:'assistant',msg:reply}]}}));
+  };
+
+  return (
+    <div style={{height:'100%',display:'flex',flexDirection:'column',overflow:'hidden'}}>
+      {/* Year nav */}
+      <div style={{padding:'16px 32px 0',borderBottom:'1px solid var(--border)'}}>
+        <div style={{display:'flex',gap:4,marginBottom:12}}>
+          {years.map(y=>(
+            <button key={y} onClick={()=>{setActiveYear(y);setActiveSem('Semester 1');setExpandedSubject(null)}} style={{
+              padding:'8px 18px',borderRadius:8,border:'none',fontSize:13,fontWeight:500,
+              background:activeYear===y?'var(--surface3)':'none',
+              color:activeYear===y?'var(--text)':'var(--text3)'
+            }}>{y}</button>
+          ))}
+        </div>
+        <div style={{display:'flex',gap:4}}>
+          {sems.map(s=>(
+            <button key={s} onClick={()=>{setActiveSem(s);setExpandedSubject(null)}} style={{
+              padding:'6px 14px',borderRadius:6,border:'none',fontSize:12,
+              background:activeSem===s?'var(--border2)':'none',
+              color:activeSem===s?'var(--text)':'var(--text3)'
+            }}>{s}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* Subjects */}
+      <div style={{flex:1,overflowY:'auto',padding:'24px 32px'}}>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:12,alignItems:'start'}}>
+          {SUBJECTS[activeYear][activeSem].map(orig=>{
+            const subj = getTitle(orig);
+            const isOpen = expandedSubject===orig;
+            const d = drawerState[orig]||{};
+            return (
+              <div key={orig} style={{border:'1px solid var(--border)',borderRadius:10,overflow:'hidden',background:'var(--surface)'}}>
+                <div
+                  onClick={()=>{setExpandedSubject(isOpen?null:orig);initDrawer(orig)}}
+                  style={{padding:'16px 18px',cursor:'pointer',display:'flex',justifyContent:'space-between',alignItems:'center',background:'var(--surface2)'}}
+                >
+                  {editingTitle===orig ? (
+                    <input
+                      autoFocus value={subjectTitles[orig]||orig}
+                      onChange={e=>setSubjectTitles(p=>({...p,[orig]:e.target.value}))}
+                      onBlur={()=>setEditingTitle(null)}
+                      onKeyDown={e=>{if(e.key==='Enter')setEditingTitle(null)}}
+                      onClick={e=>e.stopPropagation()}
+                      style={{flex:1,fontSize:14,fontWeight:600}}
+                    />
+                  ) : (
+                    <span
+                      style={{fontSize:14,fontWeight:600,flex:1}}
+                      onDoubleClick={e=>{e.stopPropagation();setEditingTitle(orig)}}
+                    >{subj}</span>
+                  )}
+                  <span style={{color:'var(--text3)',fontSize:16,marginLeft:8}}>{isOpen?'↑':'↓'}</span>
+                </div>
+
+                {isOpen && (
+                  <div style={{padding:18,borderTop:'1px solid var(--border)'}}>
+                    {/* File upload */}
+                    <div style={{marginBottom:16}}>
+                      <p style={{fontSize:11,color:'var(--text3)',letterSpacing:2,textTransform:'uppercase',marginBottom:8}}>Resources</p>
+                      <label style={{
+                        display:'block',border:'1px dashed var(--border2)',borderRadius:8,
+                        padding:'14px',textAlign:'center',cursor:'pointer',fontSize:12,color:'var(--text3)'
+                      }}>
+                        <input type="file" multiple style={{display:'none'}} onChange={e=>handleFiles(orig,e.target.files)}/>
+                        📎 Drop files or click to upload (PDF, Images, Notes)
+                      </label>
+                      {d.files?.length>0 && (
+                        <div style={{marginTop:8,display:'flex',flexWrap:'wrap',gap:6}}>
+                          {d.files.map((f,i)=>(
+                            <span key={i} style={{background:'var(--surface3)',border:'1px solid var(--border2)',borderRadius:4,padding:'3px 8px',fontSize:11,color:'var(--text2)'}}>{f}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Summarizer */}
+                    <div style={{marginBottom:16}}>
+                      <button onClick={()=>summarize(orig)} disabled={d.summLoading} style={{
+                        width:'100%',padding:'9px',background:'var(--surface3)',border:'1px solid var(--border2)',
+                        borderRadius:8,color:'var(--text)',fontSize:12,fontWeight:500
+                      }}>
+                        {d.summLoading?'⏳ Extracting text...':'📋 Summarize Docs'}
+                      </button>
+                      {d.summary && (
+                        <div style={{marginTop:10,padding:'12px',background:'var(--surface2)',borderRadius:8,border:'1px solid var(--border)'}}>
+                          {d.summary.map((s,i)=>(
+                            <p key={i} style={{fontSize:12,color:'var(--text2)',marginBottom:6,lineHeight:1.5}}>• {s.replace(/\*\*/g,'')}</p>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Past paper analyzer */}
+                    <div style={{marginBottom:16}}>
+                      <label style={{
+                        display:'block',border:'1px dashed var(--border2)',borderRadius:8,
+                        padding:'12px',textAlign:'center',cursor:'pointer',fontSize:12,color:'var(--text3)',marginBottom:8
+                      }}>
+                        <input type="file" multiple style={{display:'none'}} onChange={e=>handleFiles(orig,e.target.files)}/>
+                        📄 Drop Past Papers Here
+                      </label>
+                      <button onClick={()=>analyzeTopics(orig)} disabled={d.topicsLoading} style={{
+                        width:'100%',padding:'9px',background:'var(--surface3)',border:'1px solid var(--border2)',
+                        borderRadius:8,color:'var(--text)',fontSize:12,fontWeight:500
+                      }}>
+                        {d.topicsLoading?'⏳ Analyzing patterns...':'🔍 Analyze High-Frequency Topics'}
+                      </button>
+                      {d.topics && (
+                        <div style={{marginTop:10}}>
+                          {d.topics.map((t,i)=>(
+                            <div key={i} style={{marginBottom:8}}>
+                              <div style={{display:'flex',justifyContent:'space-between',fontSize:11,marginBottom:4}}>
+                                <span style={{color:'var(--text2)'}}>{t.label}</span>
+                                <span style={{color:'var(--text3)'}}>{t.prob}%</span>
+                              </div>
+                              <div style={{height:4,background:'var(--surface3)',borderRadius:2}}>
+                                <div style={{width:`${t.prob}%`,height:'100%',background:'var(--text3)',borderRadius:2}}/>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Chat */}
+                    <div>
+                      <p style={{fontSize:11,color:'var(--text3)',letterSpacing:2,textTransform:'uppercase',marginBottom:8}}>Study Chat</p>
+                      <div style={{height:150,overflowY:'auto',marginBottom:8,padding:'8px',background:'var(--surface2)',borderRadius:8,border:'1px solid var(--border)'}}>
+                        {(d.chat||[]).map((c,i)=>(
+                          <div key={i} style={{marginBottom:8,textAlign:c.role==='user'?'right':'left'}}>
+                            <span style={{
+                              display:'inline-block',padding:'6px 10px',borderRadius:8,fontSize:11,lineHeight:1.5,
+                              background:c.role==='user'?'var(--surface3)':'var(--border)',
+                              color:'var(--text2)',maxWidth:'85%',textAlign:'left'
+                            }}>{c.msg}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{display:'flex',gap:6}}>
+                        <input
+                          value={d.chatInput||''}
+                          onChange={e=>updateDrawer(orig,{chatInput:e.target.value})}
+                          onKeyDown={e=>e.key==='Enter'&&sendChat(orig)}
+                          placeholder="Ask about this subject..."
+                          style={{flex:1,fontSize:12}}
+                        />
+                        <button onClick={()=>sendChat(orig)} style={{
+                          padding:'6px 12px',background:'var(--surface3)',border:'1px solid var(--border2)',
+                          borderRadius:6,color:'var(--text)',fontSize:12
+                        }}>→</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── FINANCE VIEW ─────────────────────────────────────────────────────────────
+function FinanceView() {
+  const [txs] = useState([
+    {label:'Coffee',amt:-4.50,cat:'Food',date:'Today'},
+    {label:'Freelance Project',amt:+850,cat:'Income',date:'Yesterday'},
+    {label:'Netflix',amt:-15.99,cat:'Entertainment',date:'Mon'},
+    {label:'Groceries',amt:-63.20,cat:'Food',date:'Sun'},
+    {label:'Salary',amt:+2200,cat:'Income',date:'Fri'},
+  ]);
+  const balance = txs.reduce((s,t)=>s+t.amt,0);
+
+  return (
+    <div style={{padding:'32px 40px',overflowY:'auto',height:'100%'}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12,marginBottom:32}}>
+        {[
+          {label:'Balance',val:`₹${balance.toFixed(2)}`,c:'var(--text)'},
+          {label:'Income',val:'₹3,050.00',c:'var(--green)'},
+          {label:'Expenses',val:'₹83.69',c:'var(--red)'},
+        ].map(s=>(
+          <div key={s.label} style={{padding:'20px',background:'var(--surface2)',borderRadius:12,border:'1px solid var(--border)'}}>
+            <p style={{fontSize:11,color:'var(--text3)',letterSpacing:2,textTransform:'uppercase',marginBottom:8}}>{s.label}</p>
+            <p style={{fontSize:26,fontWeight:600,color:s.c}}>{s.val}</p>
+          </div>
+        ))}
+      </div>
+      <p style={{fontSize:11,color:'var(--text3)',letterSpacing:2,textTransform:'uppercase',marginBottom:12}}>Recent Transactions</p>
+      {txs.map((t,i)=>(
+        <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'14px 16px',background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:8,marginBottom:6}}>
+          <div>
+            <p style={{fontSize:13,fontWeight:500}}>{t.label}</p>
+            <p style={{fontSize:11,color:'var(--text3)',marginTop:2}}>{t.cat} · {t.date}</p>
+          </div>
+          <span style={{fontSize:14,fontWeight:600,color:t.amt>0?'var(--green)':'var(--text)'}}>{t.amt>0?'+':''}{t.amt.toFixed(2)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── HEALTH VIEW ─────────────────────────────────────────────────────────────
+function HealthView() {
+  const metrics = [
+    {label:'Steps Today',val:'7,842',goal:'10,000',pct:78},
+    {label:'Water Intake',val:'1.8L',goal:'2.5L',pct:72},
+    {label:'Sleep',val:'7h 20m',goal:'8h',pct:92},
+    {label:'Active Mins',val:'38',goal:'60',pct:63},
+  ];
+  return (
+    <div style={{padding:'32px 40px',overflowY:'auto',height:'100%'}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:12,marginBottom:32}}>
+        {metrics.map(m=>(
+          <div key={m.label} style={{padding:'20px',background:'var(--surface2)',borderRadius:12,border:'1px solid var(--border)'}}>
+            <p style={{fontSize:11,color:'var(--text3)',letterSpacing:2,textTransform:'uppercase',marginBottom:12}}>{m.label}</p>
+            <p style={{fontSize:26,fontWeight:600,marginBottom:4}}>{m.val}</p>
+            <p style={{fontSize:11,color:'var(--text3)',marginBottom:10}}>Goal: {m.goal}</p>
+            <div style={{height:4,background:'var(--surface3)',borderRadius:2}}>
+              <div style={{width:`${m.pct}%`,height:'100%',background:'var(--text2)',borderRadius:2,transition:'width .5s ease'}}/>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── GROWTH VIEW ─────────────────────────────────────────────────────────────
+function GrowthView() {
+  const skills = [
+    {name:'React',level:60,color:'var(--blue)'},
+    {name:'Python',level:30,color:'var(--green)'},
+    {name:'3D Design',level:55,color:'var(--amber)'},
+    {name:'Filmmaking',level:80,color:'var(--red)'},
+    {name:'Mathematics',level:70,color:'var(--text2)'},
+  ];
+  return (
+    <div style={{padding:'32px 40px',overflowY:'auto',height:'100%'}}>
+      <p style={{fontSize:11,color:'var(--text3)',letterSpacing:2,textTransform:'uppercase',marginBottom:20}}>Skill Progress</p>
+      {skills.map(s=>(
+        <div key={s.name} style={{marginBottom:20}}>
+          <div style={{display:'flex',justifyContent:'space-between',marginBottom:8}}>
+            <span style={{fontSize:13,fontWeight:500}}>{s.name}</span>
+            <span style={{fontSize:12,color:'var(--text3)'}}>{s.level}%</span>
+          </div>
+          <div style={{height:6,background:'var(--surface2)',borderRadius:3,overflow:'hidden'}}>
+            <div style={{width:`${s.level}%`,height:'100%',background:s.color,borderRadius:3,transition:'width .8s ease'}}/>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── MAIN APP ─────────────────────────────────────────────────────────────────
+function App() {
+  const [activeNav, setActiveNav] = useState('Personal');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [sidebarItems, setSidebarItems] = useState(INIT_SIDEBAR_ITEMS);
+  const [overlayItem, setOverlayItem] = useState(null);
+  const [stats, setStats] = useState(INIT_STATS);
+  const [projects] = useState(INIT_PROJECTS);
+  const [toasts, setToasts] = useState([]);
+  const [newItemLabel, setNewItemLabel] = useState('');
+  const [addingItem, setAddingItem] = useState(false);
+
+  const addToast = (msg) => {
+    const id = Date.now();
+    setToasts(p=>[...p,{id,msg}]);
+    setTimeout(()=>setToasts(p=>p.filter(t=>t.id!==id)),2500);
+  };
+
+  const deleteSidebarItem = (id,e) => {
+    e.stopPropagation();
+    setSidebarItems(p=>p.filter(i=>i.id!==id));
+  };
+
+  const addCustomView = () => {
+    if(!newItemLabel.trim()) return;
+    setSidebarItems(p=>[...p,{id:Date.now(),label:newItemLabel,icon:'⚙️'}]);
+    setNewItemLabel('');
+    setAddingItem(false);
+  };
+
+  const navViews = {
+    Personal: <PersonalView projects={projects}/>,
+    Academic: <AcademicView addToast={addToast}/>,
+    Finance: <FinanceView/>,
+    Health: <HealthView/>,
+    Growth: <GrowthView/>,
+  };
+
+  return (
+    <div style={{position:'fixed',inset:0,background:'#000',display:'flex',flexDirection:'column',overflow:'hidden'}}>
+      {/* Top Toolbar */}
+      <div style={{position:'absolute',top:16,left:'50%',transform:'translateX(-50%)',zIndex:100,pointerEvents:'none',display:'flex',justifyContent:'center',width:'100%'}}>
+        <div style={{
+          pointerEvents:'auto',
+          display:'flex',alignItems:'center',gap:4,
+          padding:'6px 8px',
+          background:'rgba(0,0,0,0.7)',
+          backdropFilter:'blur(20px)',
+          border:'1px solid var(--border2)',
+          borderRadius:999,
+        }}>
+          {['Personal','Academic','Finance','Health','Growth'].map(nav=>(
+            <button key={nav} onClick={()=>setActiveNav(nav)} style={{
+              padding:'7px 18px',borderRadius:999,border:'none',fontSize:13,fontWeight:500,
+              background:activeNav===nav?'var(--surface3)':'none',
+              color:activeNav===nav?'var(--text)':'var(--text3)',
+              letterSpacing:'-0.2px'
+            }}>{nav}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* Profile button */}
+      <button onClick={()=>setProfileOpen(o=>!o)} style={{
+        position:'absolute',top:16,right:16,zIndex:101,
+        width:40,height:40,borderRadius:'50%',border:'1px solid var(--border2)',
+        background:'var(--surface2)',color:'var(--text)',fontSize:16,display:'flex',alignItems:'center',justifyContent:'center'
+      }}>👤</button>
+
+      {/* Main layout */}
+      <div style={{display:'flex',flex:1,overflow:'hidden',paddingTop:70}}>
+        {/* Sidebar */}
+        <div style={{
+          width:sidebarOpen?220:56,
+          background:'var(--surface)',borderRight:'1px solid var(--border)',
+          transition:'width .3s cubic-bezier(.4,0,.2,1)',
+          display:'flex',flexDirection:'column',overflow:'hidden',flexShrink:0,
+          position:'relative',zIndex:50
+        }}>
+          <button onClick={()=>setSidebarOpen(o=>!o)} style={{
+            display:'flex',alignItems:'center',gap:12,padding:'14px 16px',
+            background:'none',border:'none',color:'var(--text3)',fontSize:14,
+            width:'100%',borderBottom:'1px solid var(--border)'
+          }}>
+            <span style={{fontSize:18,flexShrink:0}}>☰</span>
+            {sidebarOpen && <span style={{fontSize:12,letterSpacing:2,textTransform:'uppercase',opacity:.6}}>Menu</span>}
+          </button>
+
+          <div style={{flex:1,overflowY:'auto',padding:'8px 0'}}>
+            {sidebarItems.map(item=>(
+              <div key={item.id}
+                onClick={()=>setOverlayItem(item)}
+                style={{
+                  display:'flex',alignItems:'center',gap:12,padding:'10px 16px',cursor:'pointer',
+                  transition:'background .2s',position:'relative',
+                  ':hover':{background:'var(--surface2)'}
+                }}
+                onMouseEnter={e=>e.currentTarget.style.background='var(--surface2)'}
+                onMouseLeave={e=>e.currentTarget.style.background='none'}
+              >
+                <span style={{fontSize:16,flexShrink:0}}>{item.icon}</span>
+                {sidebarOpen && <>
+                  <span style={{fontSize:13,color:'var(--text2)',flex:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{item.label}</span>
+                  <button
+                    onClick={e=>deleteSidebarItem(item.id,e)}
+                    style={{background:'none',border:'none',color:'var(--text3)',fontSize:14,padding:0,opacity:.5,flexShrink:0}}
+                  >×</button>
+                </>}
+              </div>
+            ))}
+
+            {sidebarOpen && (
+              <div style={{padding:'8px 16px'}}>
+                {addingItem ? (
+                  <div style={{display:'flex',gap:6}}>
+                    <input
+                      autoFocus value={newItemLabel}
+                      onChange={e=>setNewItemLabel(e.target.value)}
+                      onKeyDown={e=>{if(e.key==='Enter')addCustomView();if(e.key==='Escape')setAddingItem(false)}}
+                      placeholder="View name..."
+                      style={{flex:1,fontSize:12,padding:'5px 8px'}}
+                    />
+                    <button onClick={addCustomView} style={{background:'none',border:'1px solid var(--border)',borderRadius:6,color:'var(--text)',fontSize:11,padding:'4px 8px'}}>+</button>
+                  </div>
+                ) : (
+                  <button onClick={()=>setAddingItem(true)} style={{
+                    width:'100%',padding:'8px',background:'none',border:'1px dashed var(--border2)',
+                    borderRadius:8,color:'var(--text3)',fontSize:12
+                  }}>+ Add Custom View</button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Main content */}
+        <div style={{flex:1,overflow:'hidden',position:'relative'}}>
+          {navViews[activeNav]}
+        </div>
+      </div>
+
+      {/* Profile Drawer */}
+      <ProfileDrawer open={profileOpen} onClose={()=>setProfileOpen(false)} stats={stats} setStats={setStats} addToast={addToast}/>
+
+      {/* Sidebar overlay */}
+      {overlayItem && <SidebarOverlay item={overlayItem} onClose={()=>setOverlayItem(null)}/>}
+
+      {/* Toasts */}
+      <Toast toasts={toasts}/>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
